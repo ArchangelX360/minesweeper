@@ -43,18 +43,7 @@ fun App() {
                     else -> {
                         when (val gameState = b.gameSate()) {
                             is GameState.Finished -> {
-                                var showDialog by remember { mutableStateOf(true) }
-                                val onRestart = { board = null }
-                                MinesweeperBoard(b, true)
-                                if (showDialog) {
-                                    EndOfGameDialog(
-                                        gameState.outcome,
-                                        onDismiss = { showDialog = false },
-                                        onRestart = onRestart,
-                                    )
-                                } else {
-                                    RestartButton(modifier = Modifier.padding(top = 5.dp), onRestart)
-                                }
+                                EndOfGame(gameState.outcome, b, onRestart = { board = null })
                             }
 
                             GameState.Ongoing -> {
@@ -67,6 +56,21 @@ fun App() {
                 }
             }
         }
+    }
+}
+
+@Composable
+fun EndOfGame(outcome: Outcome, board: Board, onRestart: () -> Unit) {
+    var showDialog by remember { mutableStateOf(true) }
+    MinesweeperBoard(board, true)
+    if (showDialog) {
+        EndOfGameDialog(
+            outcome,
+            onDismiss = { showDialog = false },
+            onRestart = onRestart,
+        )
+    } else {
+        RestartButton(modifier = Modifier.padding(top = 5.dp), onRestart)
     }
 }
 
@@ -149,12 +153,19 @@ fun MinesweeperCell(
 
 @Composable
 private fun CellState.color(showEverything: Boolean) = when (this) {
-    is CellState.MarkedAsMine -> if (showEverything && rightfullyMarkedAsMine()) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.tertiaryContainer
+    is CellState.MarkedAsMine -> when {
+        showEverything && rightfullyMarkedAsMine() -> MaterialTheme.colorScheme.errorContainer
+        else -> MaterialTheme.colorScheme.tertiaryContainer
+    }
+
     CellState.Untouched -> MaterialTheme.colorScheme.primaryContainer
     CellState.Empty -> MaterialTheme.colorScheme.secondaryContainer
     is CellState.Numbered -> MaterialTheme.colorScheme.inversePrimary
     CellState.RevealedMine -> MaterialTheme.colorScheme.errorContainer
-    CellState.UnrevealedMine -> if (showEverything) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer
+    CellState.UnrevealedMine -> when {
+        showEverything -> MaterialTheme.colorScheme.errorContainer
+        else -> MaterialTheme.colorScheme.primaryContainer
+    }
 }
 
 private fun CellState.text(showEverything: Boolean) = when (this) {
