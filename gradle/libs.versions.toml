@@ -4,6 +4,7 @@ compose-plugin = "1.5.10"
 compose-compiler = "1.5.4"
 kotlin = "1.9.20"
 junit = "4.13.2"
+fleet-plugin = "0.3.120"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -18,3 +19,6 @@ compose-material = { module = "androidx.compose.material:material", version.ref 
 [plugins]
 jetbrainsCompose = { id = "org.jetbrains.compose", version.ref = "compose-plugin" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlinxSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+fleetPlugin = { id = "org.jetbrains.fleet-plugin", version.ref = "fleet-plugin" }
