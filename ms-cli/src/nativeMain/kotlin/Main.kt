@@ -16,7 +16,7 @@ fun main(args: Array<String>) {
         numberOfMines = numberOfMines.toInt(),
     )
     while (true) {
-        board.display(revealed = false)
+        board.display(showEverything = false)
         val row = askForRow(board)
         val column = askForColumn(board)
         val action = askForAction()
@@ -27,7 +27,7 @@ fun main(args: Array<String>) {
                     Outcome.WON -> println("You won!\n\n")
                     Outcome.LOST -> println("You lost!\n\n")
                 }
-                board.display(revealed = true)
+                board.display(showEverything = true)
                 exitProcess(0)
             }
 
@@ -89,7 +89,7 @@ fun Action.toDescription() = when (this) {
     Action.MARK_AS_MINE -> "mark or unmark cell as mine"
 }
 
-internal fun Board.display(revealed: Boolean) {
+internal fun Board.display(showEverything: Boolean) {
     val padRows = calculatePadding(rows)
     val padColumns = calculatePadding(columns)
 
@@ -98,7 +98,8 @@ internal fun Board.display(revealed: Boolean) {
     val columnHeader = "$prefix$columnNumbers"
 
     val game = cells.mapIndexed { index, cell ->
-        val c = cell.stringRepresentationIn(this, revealed).padStart(padColumns, ' ')
+        val state = if (showEverything) cell.reveal(this, safely = true).state else cell.state
+        val c = state.text(showEverything).padStart(padColumns, ' ')
         if (index % columns == 0) {
             val rowCount = ((index / columns) + 1).toString().padStart(padRows, ' ')
             "\n$rowCount $c"
@@ -119,15 +120,11 @@ private fun calculatePadding(x: Int): Int {
     return pad
 }
 
-private fun Cell.stringRepresentationIn(board: Board, revealed: Boolean): String {
-    val state = if (revealed) reveal(board, safely = true).state else state
-    val unknown = "."
-    return when (state) {
-        is CellState.MarkedAsMine -> if (revealed) "Y" else "X"
-        CellState.Untouched -> unknown
-        CellState.Empty -> " "
-        is CellState.Numbered -> "${state.surroundingMineCount}"
-        CellState.RevealedMine -> "⁂"
-        CellState.UnrevealedMine -> if (revealed) "¤" else unknown
-    }
+private fun CellState.text(showEverything: Boolean) = when (this) {
+    is CellState.MarkedAsMine -> if (showEverything && rightfullyMarkedAsMine()) "Y" else "X"
+    CellState.Untouched -> "."
+    CellState.Empty -> " "
+    is CellState.Numbered -> "$surroundingMineCount"
+    CellState.RevealedMine -> "⁂"
+    CellState.UnrevealedMine -> if (showEverything) "¤" else "."
 }
