@@ -18,7 +18,7 @@ import se.dorne.minesweeper.gameengine.*
 private val CELL_SIZE = 48.dp
 
 @Composable
-fun App() {
+fun minesweeperApp() {
     MaterialTheme(
         colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme(),
     ) {
@@ -35,7 +35,7 @@ fun App() {
                 )
                 when (val b = board) {
                     null -> {
-                        MinesweeperInitializer { columns, rows, mines ->
+                        minesweeperBoardInitializer { columns, rows, mines ->
                             board = Board.initialBoard(columns, rows, mines)
                         }
                     }
@@ -43,11 +43,11 @@ fun App() {
                     else -> {
                         when (val gameState = b.gameSate()) {
                             is GameState.Finished -> {
-                                EndOfGame(gameState.outcome, b, onRestart = { board = null })
+                                endOfGame(gameState.outcome, b, onRestart = { board = null })
                             }
 
                             GameState.Ongoing -> {
-                                MinesweeperBoard(b, false) { cell, action ->
+                                minesweeperBoard(b, false) { cell, action ->
                                     board = b.play(action, cell.index)
                                 }
                             }
@@ -60,22 +60,22 @@ fun App() {
 }
 
 @Composable
-fun EndOfGame(outcome: Outcome, board: Board, onRestart: () -> Unit) {
+fun endOfGame(outcome: Outcome, board: Board, onRestart: () -> Unit) {
     var showDialog by remember { mutableStateOf(true) }
-    MinesweeperBoard(board, true)
+    minesweeperBoard(board, true)
     if (showDialog) {
-        EndOfGameDialog(
+        endOfGameDialog(
             outcome,
             onDismiss = { showDialog = false },
             onRestart = onRestart,
         )
     } else {
-        RestartButton(modifier = Modifier.padding(top = 5.dp), onRestart)
+        restartGameButton(modifier = Modifier.padding(top = 5.dp), onRestart)
     }
 }
 
 @Composable
-fun EndOfGameDialog(outcome: Outcome, onDismiss: () -> Unit, onRestart: () -> Unit) {
+fun endOfGameDialog(outcome: Outcome, onDismiss: () -> Unit, onRestart: () -> Unit) {
     val dialogText = when (outcome) {
         Outcome.WON -> "You won!"
         Outcome.LOST -> "You lost!"
@@ -84,7 +84,7 @@ fun EndOfGameDialog(outcome: Outcome, onDismiss: () -> Unit, onRestart: () -> Un
         title = { Text(text = "End of game") },
         text = { Text(text = dialogText) },
         onDismissRequest = onDismiss,
-        confirmButton = { RestartButton(onRestart = onRestart) },
+        confirmButton = { restartGameButton(onRestart = onRestart) },
         dismissButton = {
             TextButton(
                 onClick = onDismiss
@@ -96,7 +96,7 @@ fun EndOfGameDialog(outcome: Outcome, onDismiss: () -> Unit, onRestart: () -> Un
 }
 
 @Composable
-fun RestartButton(modifier: Modifier = Modifier, onRestart: () -> Unit) {
+fun restartGameButton(modifier: Modifier = Modifier, onRestart: () -> Unit) {
     Button(
         modifier = modifier,
         onClick = onRestart,
@@ -106,7 +106,7 @@ fun RestartButton(modifier: Modifier = Modifier, onRestart: () -> Unit) {
 }
 
 @Composable
-fun MinesweeperBoard(
+fun minesweeperBoard(
     board: Board,
     showEverything: Boolean,
     onCellClick: (cell: Cell, action: Action) -> Unit = { _, _ -> },
@@ -118,14 +118,14 @@ fun MinesweeperBoard(
         verticalArrangement = Arrangement.Center,
     ) {
         items(board.cells) { cell ->
-            MinesweeperCell(cell, board, showEverything, onCellClick)
+            minesweeperCell(cell, board, showEverything, onCellClick)
         }
     }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun MinesweeperCell(
+fun minesweeperCell(
     cell: Cell,
     board: Board,
     showEverything: Boolean,
@@ -184,7 +184,7 @@ private enum class GameType(val description: String, val rows: Int, val columns:
 }
 
 @Composable
-fun MinesweeperInitializer(onValidation: (columns: Int, rows: Int, mines: Int) -> Unit) {
+fun minesweeperBoardInitializer(onValidation: (columns: Int, rows: Int, mines: Int) -> Unit) {
     var type by remember { mutableStateOf(GameType.BEGINNER) }
     Column(Modifier.fillMaxWidth(0.5f), horizontalAlignment = Alignment.CenterHorizontally) {
         Text("Select the type of game you want to play:", style = MaterialTheme.typography.bodyLarge)
