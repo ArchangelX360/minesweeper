@@ -1,49 +1,66 @@
 package se.dorne.minesweeper.ui
 
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.material.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.TextUnit
-import androidx.compose.ui.unit.TextUnitType
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.input.pointer.PointerButton
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.times
 import se.dorne.minesweeper.gameengine.*
-import kotlin.math.ceil
+
+private val CELL_SIZE = 48.dp
 
 @Composable
 fun App() {
-    MaterialTheme {
+    MaterialTheme(
+        colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme(),
+    ) {
         var board by remember { mutableStateOf<Board?>(null) }
-        Column(Modifier.fillMaxWidth().fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Minesweeper", fontSize = TextUnit(5f, TextUnitType.Em))
-            when (val b = board) {
-                null -> {
-                    MinesweeperInitializer { columns, rows, mines ->
-                        board = Board.initialBoard(columns, rows, mines)
-                    }
-                }
-
-                else -> {
-                    when (val gameState = b.gameSate()) {
-                        is GameState.Finished -> {
-                            var showDialog by remember { mutableStateOf(true) }
-                            if (showDialog) {
-                                EndOfGameDialog(gameState.outcome, onDismiss = { showDialog = false }, onRestart = {
-                                    board = null
-                                })
-                            }
-                            MinesweeperBoard(b, true) { _, _ -> }
+        Surface {
+            Column(
+                modifier = Modifier.fillMaxWidth().fillMaxHeight(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    "Minesweeper",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(bottom = 5.dp)
+                )
+                when (val b = board) {
+                    null -> {
+                        MinesweeperInitializer { columns, rows, mines ->
+                            board = Board.initialBoard(columns, rows, mines)
                         }
+                    }
 
-                        GameState.Ongoing -> {
-                            MinesweeperBoard(b, false) { cell, action ->
-                                board = b.play(action, cell.index)
+                    else -> {
+                        when (val gameState = b.gameSate()) {
+                            is GameState.Finished -> {
+                                var showDialog by remember { mutableStateOf(true) }
+                                val onRestart = { board = null }
+                                MinesweeperBoard(b, true)
+                                if (showDialog) {
+                                    EndOfGameDialog(
+                                        gameState.outcome,
+                                        onDismiss = { showDialog = false },
+                                        onRestart = onRestart,
+                                    )
+                                } else {
+                                    RestartButton(modifier = Modifier.padding(top = 5.dp), onRestart)
+                                }
+                            }
+
+                            GameState.Ongoing -> {
+                                MinesweeperBoard(b, false) { cell, action ->
+                                    board = b.play(action, cell.index)
+                                }
                             }
                         }
                     }
@@ -59,99 +76,121 @@ fun EndOfGameDialog(outcome: Outcome, onDismiss: () -> Unit, onRestart: () -> Un
         Outcome.WON -> "You won!"
         Outcome.LOST -> "You lost!"
     }
-    AlertDialog(title = {
-        Text(text = "End of game")
-    }, text = {
-        Text(text = dialogText)
-    }, onDismissRequest = onDismiss, confirmButton = {
-        TextButton(
-            onClick = onRestart,
-        ) {
-            Text("Restart game")
-        }
-    }, dismissButton = {
-        TextButton(
-            onClick = onDismiss
-        ) {
-            Text("Dismiss")
-        }
-    })
+    AlertDialog(
+        title = { Text(text = "End of game") },
+        text = { Text(text = dialogText) },
+        onDismissRequest = onDismiss,
+        confirmButton = { RestartButton(onRestart = onRestart) },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss
+            ) {
+                Text("See board")
+            }
+        },
+    )
 }
 
 @Composable
-fun MinesweeperBoard(board: Board, showEverything: Boolean, onCellClick: (cell: Cell, action: Action) -> Unit) {
-    var action by remember { mutableStateOf(Action.REVEAL) }
-    Column(modifier = Modifier.fillMaxWidth(0.8f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Mark/Unmark as mine")
-            Switch(checked = action == Action.REVEAL, onCheckedChange = {
-                action = if (it) Action.REVEAL else Action.MARK_AS_MINE
-            })
-            Text("Reveal")
-        }
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(board.columns),
-        ) {
-            items(board.cells) { cell ->
-                MinesweeperCell(cell, board, showEverything, action, onCellClick)
-            }
+fun RestartButton(modifier: Modifier = Modifier, onRestart: () -> Unit) {
+    Button(
+        modifier = modifier,
+        onClick = onRestart,
+    ) {
+        Text("Restart game")
+    }
+}
+
+@Composable
+fun MinesweeperBoard(
+    board: Board,
+    showEverything: Boolean,
+    onCellClick: (cell: Cell, action: Action) -> Unit = { _, _ -> },
+) {
+    LazyVerticalGrid(
+        modifier = Modifier.width(board.columns * CELL_SIZE).height(board.rows * CELL_SIZE),
+        columns = GridCells.Fixed(board.columns),
+        horizontalArrangement = Arrangement.Center,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        items(board.cells) { cell ->
+            MinesweeperCell(cell, board, showEverything, onCellClick)
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MinesweeperCell(
-    cell: Cell, board: Board, showEverything: Boolean, action: Action, onCellClick: (cell: Cell, action: Action) -> Unit
+    cell: Cell,
+    board: Board,
+    showEverything: Boolean,
+    onCellClick: (cell: Cell, action: Action) -> Unit,
 ) {
-    Button(
-        onClick = { onCellClick(cell, action) },
-        enabled = !showEverything && !cell.state.alreadyRevealed(),
+    val state = if (showEverything) cell.reveal(board, safely = true).state else cell.state
+    Surface(
+        shape = RectangleShape,
+        border = ButtonDefaults.outlinedButtonBorder,
+        color = state.color(showEverything),
+        modifier = Modifier.size(CELL_SIZE).combinedClickable(
+            enabled = !showEverything && !cell.state.alreadyRevealed(),
+            onLongClick = { onCellClick(cell, Action.MARK_AS_MINE) },
+            onClick = { onCellClick(cell, Action.REVEAL) },
+        ).onClick(
+            // if devices can use a mouse right click
+            matcher = PointerMatcher.mouse(PointerButton.Secondary),
+            onClick = { onCellClick(cell, Action.MARK_AS_MINE) }),
     ) {
-        val state = if (showEverything) cell.reveal(board, safely = true).state else cell.state
-        val value = when (state) {
-            is CellState.MarkedAsMine -> if (showEverything && state.rightfullyMarkedAsMine()) "❗" else "❌"
-            CellState.Untouched -> " "
-            CellState.Empty -> " "
-            is CellState.Numbered -> "${state.surroundingMineCount}"
-            CellState.RevealedMine -> "\uD83D\uDCA5"
-            CellState.UnrevealedMine -> if (showEverything) "\uD83D\uDCA3" else " "
+        Box(contentAlignment = Alignment.Center) {
+            Text(state.text(showEverything))
         }
-        Text(value)
     }
+}
+
+@Composable
+private fun CellState.color(showEverything: Boolean) = when (this) {
+    is CellState.MarkedAsMine -> if (showEverything && rightfullyMarkedAsMine()) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.tertiaryContainer
+    CellState.Untouched -> MaterialTheme.colorScheme.primaryContainer
+    CellState.Empty -> MaterialTheme.colorScheme.secondaryContainer
+    is CellState.Numbered -> MaterialTheme.colorScheme.inversePrimary
+    CellState.RevealedMine -> MaterialTheme.colorScheme.errorContainer
+    CellState.UnrevealedMine -> if (showEverything) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer
+}
+
+private fun CellState.text(showEverything: Boolean) = when (this) {
+    is CellState.MarkedAsMine -> if (showEverything && rightfullyMarkedAsMine()) "❗" else "❌"
+    CellState.Untouched -> " "
+    CellState.Empty -> " "
+    is CellState.Numbered -> "$surroundingMineCount"
+    CellState.RevealedMine -> "\uD83D\uDCA5"
+    CellState.UnrevealedMine -> if (showEverything) "\uD83D\uDCA3" else " "
+}
+
+private enum class GameType(val description: String, val rows: Int, val columns: Int, val mines: Int) {
+    BEGINNER("Beginner", 9, 9, 10),
+    INTERMEDIATE("Intermediate", 16, 16, 40),
+    EXPERT("Expert", 16, 30, 99),
 }
 
 @Composable
 fun MinesweeperInitializer(onValidation: (columns: Int, rows: Int, mines: Int) -> Unit) {
-    val (numberOfColumns, setColumns) = remember { mutableStateOf(9f) }
-    val (numberOfRows, setRows) = remember { mutableStateOf(9f) }
-    val (numberOfMines, setMines) = remember { mutableStateOf(10f) }
-
-    Column(Modifier.fillMaxWidth(0.5f)) {
-        Text("Number of rows: $numberOfRows")
-        ParameterSlider(numberOfRows, setRows)
-        Text("Number of columns: $numberOfColumns")
-        ParameterSlider(numberOfColumns, setColumns)
-        Text("Number of mines: $numberOfMines")
-        ParameterSlider(numberOfMines, setMines, (numberOfRows * numberOfColumns) - 1)
+    var type by remember { mutableStateOf(GameType.BEGINNER) }
+    Column(Modifier.fillMaxWidth(0.5f), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("Select the type of game you want to play:", style = MaterialTheme.typography.bodyLarge)
+        Column(horizontalAlignment = Alignment.Start) {
+            GameType.entries.forEach {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    RadioButton(
+                        selected = type == it,
+                        onClick = { type = it },
+                    )
+                    Text("${it.rows}x${it.columns} ${it.mines} mines (${it.description})")
+                }
+            }
+        }
         Button(
-            enabled = numberOfRows * numberOfColumns > numberOfMines,
-            content = {
-                Text("Start game")
-            },
-            onClick = {
-                onValidation(numberOfColumns.toInt(), numberOfRows.toInt(), numberOfMines.toInt())
-            },
+            content = { Text("Start game") },
+            onClick = { onValidation(type.columns, type.rows, type.mines) },
         )
     }
-}
-
-@Composable
-fun ParameterSlider(value: Float, set: (Float) -> Unit, max: Float = 250f) {
-    Slider(
-        value = value,
-        valueRange = 1f..max,
-        onValueChange = {
-            set(ceil(it))
-        },
-    )
 }
