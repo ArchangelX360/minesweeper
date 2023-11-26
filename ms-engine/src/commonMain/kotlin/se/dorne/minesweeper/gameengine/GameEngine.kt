@@ -1,5 +1,6 @@
 package se.dorne.minesweeper.gameengine
 
+import kotlin.math.abs
 import kotlin.random.Random
 
 enum class Action {
@@ -40,7 +41,7 @@ class Board(
                 safely = true
                 revealed.add(rev)
                 if (rev.state is CellState.Empty) {
-                    toReveal.addAll(rev.surroundingCells(this))
+                    toReveal.addAll(rev.neighbours(this))
                 }
             }
         }
@@ -122,7 +123,7 @@ data class Cell(
         state.alreadyRevealed() -> this
         state.isMine() && safely -> this
         state.isMine() && !safely -> asState(CellState.RevealedMine)
-        surroundingMines(board) > 0 -> asState(CellState.Numbered(surroundingMines(board)))
+        neighbourMinesCount(board) > 0 -> asState(CellState.Numbered(neighbourMinesCount(board)))
         else -> asState(CellState.Empty)
     }
 
@@ -137,12 +138,8 @@ data class Cell(
         return asState(state.was)
     }
 
-    private fun lineNumberIn(board: Board) = index / board.columns
+    private fun rowNumberIn(board: Board) = index / board.columns
     private fun columnNumberIn(board: Board) = index % board.columns
-    private fun touchesRightOf(board: Board) = columnNumberIn(board) == (board.columns - 1)
-    private fun touchesTopOf(board: Board) = lineNumberIn(board) == 0
-    private fun touchesBottomOf(board: Board) = lineNumberIn(board) == (board.rows - 1)
-    private fun touchesLeftOf(board: Board) = columnNumberIn(board) == 0
 
     private enum class Distances(private val lineDist: Int, private val colDist: Int) {
         TOP_LEFT(-1, -1),
@@ -157,33 +154,27 @@ data class Cell(
         fun toIndexDistance(numberOfColumns: Int) = lineDist * numberOfColumns + colDist
     }
 
-    internal fun surroundingCells(board: Board): Set<Cell> {
-        val distances = listOf(
-            Distances.TOP_LEFT,
-            Distances.TOP,
-            Distances.TOP_RIGHT,
-            Distances.RIGHT,
-            Distances.BOTTOM_RIGHT,
-            Distances.BOTTOM,
-            Distances.BOTTOM_LEFT,
-            Distances.LEFT,
-        ).filter {
-            when (it) {
-                Distances.TOP_LEFT -> !touchesTopOf(board) && !touchesLeftOf(board)
-                Distances.TOP -> !touchesTopOf(board)
-                Distances.TOP_RIGHT -> !touchesTopOf(board) && !touchesRightOf(board)
-                Distances.RIGHT -> !touchesRightOf(board)
-                Distances.BOTTOM_RIGHT -> !touchesBottomOf(board) && !touchesRightOf(board)
-                Distances.BOTTOM -> !touchesBottomOf(board)
-                Distances.BOTTOM_LEFT -> !touchesBottomOf(board) && !touchesLeftOf(board)
-                Distances.LEFT -> !touchesLeftOf(board)
-            }
-        }
-        return distances.mapNotNull { distance ->
-            board.cells.getOrNull(index + distance.toIndexDistance(board.columns))
-        }.toSet()
-    }
+    internal fun neighbours(board: Board) = listOf(
+        Distances.TOP_LEFT,
+        Distances.TOP,
+        Distances.TOP_RIGHT,
+        Distances.RIGHT,
+        Distances.BOTTOM_RIGHT,
+        Distances.BOTTOM,
+        Distances.BOTTOM_LEFT,
+        Distances.LEFT,
+    ).mapNotNull { distance ->
+        board.cells.getOrNull(index + distance.toIndexDistance(board.columns))
+    }.filter { supposedNeighbour ->
+        this.isNeighboursOf(supposedNeighbour, inBoard = board)
+    }.toSet()
 
-    private fun surroundingMines(board: Board) =
-        surroundingCells(board).map { it.index }.intersect(board.mines.map { it.index }.toSet()).size
+    // simplified euclidean distance <= 1
+    private fun Cell.isNeighboursOf(c2: Cell, inBoard: Board): Boolean =
+        abs(rowNumberIn(inBoard) - c2.rowNumberIn(inBoard)) <= 1 && abs(
+            columnNumberIn(inBoard) - c2.columnNumberIn(inBoard)
+        ) <= 1
+
+    private fun neighbourMinesCount(board: Board) =
+        neighbours(board).map { it.index }.intersect(board.mines.map { it.index }.toSet()).size
 }
